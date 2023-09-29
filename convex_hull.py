@@ -10,7 +10,6 @@ else:
 
 
 import time
-import sys
 from typing import Tuple
 
 # Some global color constants that might be useful
@@ -73,31 +72,21 @@ class ConvexHullSolver(QObject):
 
 		t1 = time.time()
 		# DONE: SORT THE POINTS BY INCREASING X-VALUE
-		sorted_points = sorted(points, key=get_x_value)
+		sorted_points = sorted(points, key=lambda point: point.x())
 		t2 = time.time()
 
 		t3 = time.time()
 		# this is a dummy polygon of the first 3 unsorted points
-		polygon = [QLineF(points[i], points[(i + 1) % 3]) for i in range(3)]
-		# TODO: REPLACE THE LINE ABOVE WITH A CALL TO YOUR DIVIDE-AND-CONQUER CONVEX HULL SOLVER
-		# TODO: After calling convex_hull_dc(), set polygon to convert_nodes_to_list(convex_hull_root)
+		# polygon = [QLineF(points[i], points[(i + 1) % 3]) for i in range(3)]
+		convex_hull_node = convex_hull_dc(sorted_points)
+		convex_hull_list = convert_nodes_to_list(convex_hull_node)
+		polygon = [QLineF(convex_hull_list[i], convex_hull_list[(i + 1) % len(convex_hull_list)]) for i in range(len(convex_hull_list))]
 		t4 = time.time()
 
 		# when passing lines to the display, pass a list of QLineF objects.  Each QLineF
 		# object can be created with two QPointF objects corresponding to the endpoints
 		self.showHull(polygon, RED)
 		self.showText('Time Elapsed (Convex Hull): {:3.3f} sec'.format(t4-t3))
-
-
-def get_x_value(point: QPointF) -> float:
-	"""
-	Retrieves the x value of a PyQt QPointF object\n
-	NOTE - used as a key for sorted(unsorted_points)
-
-	:param point: The point from which to retrieve the x-value
-	:return: The x value, as a float (double)
-	"""
-	return point.x()
 
 
 class PointNode:
@@ -115,33 +104,48 @@ class PointNode:
 		self.point = point
 
 
-def convert_nodes_to_list(point: PointNode) -> list:
+def convert_nodes_to_list(start_node: PointNode) -> list:
 	"""
 	Returns a list of QPointF objects, given a point in a convex hull
 
-	:param point: A point in a convex hull
-	:return: A list of QPointF objects composing the convex hull TODO Response from TA and state if it is clockwise/cc where the list starts in the hull
+	:param start_node: Any point in a convex hull
+	:return: A list of QPointF objects composing the convex hull
 	"""
-	# TODO when the TA responds fill this function in
+	points = []
+
+	curr_node = start_node
+	while True:
+		points.append(curr_node.point)
+
+		# increment and check if tried every point
+		curr_node = curr_node.clockwise
+		if curr_node is start_node:
+			break
+
+	return points
 
 
-def convex_hull_dc(sorted_points: list) -> PointNode:
+def convex_hull_dc(sorted_points_list: list) -> PointNode:
 	"""
 	A divide and conquer approach to finding a convex hull
 
-	:param sorted_points: A list of QPointF objects from which to find the convex hull, sorted by x-value
+	:param sorted_points_list: A list of QPointF objects from which to find the convex hull, sorted by x-value
 	:return: The root node of the resulting convex hull
 	"""
-	# if size(x) < theta then
-	# 	return adhoc(x)
-	# decompose x into a subtasks x_1,x_2,...,x_a of size n/b
-	# for i = 1 to a do
-	# 	y_i <- convex_hull_dc(x_i_
-	# y <- combine(left_hull_root, right_hull_root)
-	# return y
+	# base case - a hull of 1 point
+	if len(sorted_points_list) == 1:
+		one_node_hull = PointNode(sorted_points_list[0])
+		one_node_hull.clockwise = one_node_hull
+		one_node_hull.counter_clockwise = one_node_hull
+		return one_node_hull
 
-	a = []
-	return a
+	# divide into two hulls and solve
+	middle_index = len(sorted_points_list) // 2
+	left_hull = convex_hull_dc(sorted_points_list[0:middle_index])
+	right_hull = convex_hull_dc(sorted_points_list[middle_index:len(sorted_points_list)])
+
+	# combine the hulls together
+	return combine(left_hull, right_hull)
 
 
 def find_upper_tangent(left_hull_root: PointNode, right_hull_root: PointNode) -> Tuple[PointNode, PointNode]:
@@ -152,23 +156,35 @@ def find_upper_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 	:param right_hull_root: The root node of the right convex hull (leftmost Node)
 	:return: A tuple of PointNode objects of the left and right points of the upper tangent
 	"""
-	# find rightmost point p in L and leftmost point q in R
-	# temp = line(p, q)
-	# done = 0
-	# while not done do
-	# 	done = 1
-	# 	while temp is not upper tangent to L do
-	# 		r <- p's counterclockwise neighbor
-	# 		temp = line(r, q)
-	# 		p = r
-	# 		done = 0
-	# 	while temp is not upper tangent to R do
-	# 		r <-q's clockwise neighbor
-	# 		temp = line(p, r)
-	# 		q = r
-	# 		done = 0
-	# 	return temp
-	# TODO
+	# find rightmost point p in L (left_hull) and leftmost point q in R (right_hull)
+	left_node = to_rightmost_node(left_hull_root)
+	right_node = to_leftmost_node(right_hull_root)
+
+	# starting line from innermost nodes of the hulls
+	curr_line = QLineF(left_node.point, right_node.point)
+
+	done = 0
+	while not done:
+		done = 1
+		# while temp is note upper tangent to L
+		while not is_upper_tangent(left_node, curr_line.p1(), curr_line.p2()):
+			# r <- p's counterclockwise neighbor
+			new_left = left_node.counter_clockwise
+			# temp = line(r, q)
+			curr_line.setP1(new_left.point)
+			# p = r
+			left_node = new_left
+			done = 0
+		# while temp is not upper tangent to R do
+		while not is_upper_tangent(right_node, curr_line.p1(), curr_line.p2()):
+			# r <-q's clockwise neighbor
+			new_right = right_node.clockwise
+			# temp = line(p, r)
+			curr_line.setP2(new_right.point)
+			# q = r
+			right_node = new_right
+			done = 0
+	return left_node, right_node
 
 
 def find_lower_tangent(left_hull_root: PointNode, right_hull_root: PointNode) -> Tuple[PointNode, PointNode]:
@@ -180,59 +196,88 @@ def find_lower_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 	:return: A tuple of PointNode objects of the left and right points of the lower tangent
 	"""
 	# find rightmost point p in L and leftmost point q in R
-	# temp = line(p, q)
-	# done = 0
-	# while not done do
-	# 	done = 1
-	# 	while temp is not lower tangent to L do
-	# 		r <- p's clockwise neighbor
-	# 		temp = line(r, q)
-	# 		p = r
-	# 		done = 0
-	# 	while temp is not lower tangent to R do
-	# 		r <-q's counter-clockwise neighbor
-	# 		temp = line(p, r)
-	# 		q = r
-	# 		done = 0
-	# 	return temp
-	# TODO
+	left_node = to_rightmost_node(left_hull_root)
+	right_node = to_leftmost_node(right_hull_root)
+
+	# starting line from innermost nodes of the hulls
+	curr_line = QLineF(left_node.point, right_node.point)
+
+	done = 0
+	while not done:
+		done = 1
+		# while temp is not lower tangent to L do
+		while not is_lower_tangent(left_node, curr_line.p1(), curr_line.p2()):
+			# r <- p's clockwise neighbor
+			new_left = left_node.clockwise
+			# temp = line(r, q)
+			curr_line.setP1(new_left.point)
+			# p = r
+			left_node = new_left
+			done = 0
+		# while temp is not lower tangent to R do
+		while not is_lower_tangent(right_node, curr_line.p1(), curr_line.p2()):
+			# r <-q's counter-clockwise neighbor
+			new_right = right_node.counter_clockwise
+			# temp = line(p, r)
+			curr_line.setP2(new_right.point)
+			# q = r
+			right_node = new_right
+			done = 0
+	return left_node, right_node
 
 
-def is_upper_tangent(points: list, tangent_left: QPointF, tangent_right: QPointF) -> bool:
+def is_upper_tangent(point_in_hull: PointNode, tangent_left: QPointF, tangent_right: QPointF) -> bool:
 	"""
 	Finds if the tangent is above of all points on the list
 
-	:param points: The points to compare against the tangent, as a list of QPointF
+	:param point_in_hull: Any point of the hull which will be compared to tangent line, as a PointNode
 	:param tangent_left: The left point of the tangent, as a QPointF
 	:param tangent_right: The right point of the tangent, as a QPointF
 	:return: Whether the tangent is above all points on the list
 	"""
-	m = find_slope(tangent_left.point, tangent_right.point)
-	b = find_y_intercept(m, tangent_left.point)
+	m = find_slope(tangent_left, tangent_right)
+	b = find_y_intercept(m, tangent_left)
 
-	for point in points:
-		if above_or_below(m, b, point) == ABOVE:
+	# check if each point in the hull is below the tangent
+	curr_point = point_in_hull
+	while True:
+		if above_or_below(m, b, curr_point.point) == ABOVE:
+			# not an upper tangent for at least this point
 			return False
+
+		# increment and check if tried every point
+		curr_point = curr_point.clockwise
+		if curr_point is point_in_hull:
+			break
 
 	# all points were on or below
 	return True
 
 
-def is_lower_tangent(points: list, tangent_left: QPointF, tangent_right: QPointF) -> bool:
+def is_lower_tangent(point_in_hull: PointNode, tangent_left: QPointF, tangent_right: QPointF) -> bool:
 	"""
 	Finds if the tangent is below of all points on the list
 
-	:param points: The points to compare against the tangent, as a list of QPointF
+	:param point_in_hull: Any point of the hull which will be compared to tangent line, as a PointNode
 	:param tangent_left: The left point of the tangent, as a QPointF
 	:param tangent_right: The right point of the tangent, as a QPointF
 	:return: Whether the tangent is below all points on the list
 	"""
-	m = find_slope(tangent_left.point, tangent_right.point)
-	b = find_y_intercept(m, tangent_left.point)
 
-	for point in points:
-		if above_or_below(m, b, point) == BELOW:
+	m = find_slope(tangent_left, tangent_right)
+	b = find_y_intercept(m, tangent_left)
+
+	# check if each point in the hull is above the tangent
+	curr_point = point_in_hull
+	while True:
+		if above_or_below(m, b, curr_point.point) == BELOW:
+			# not a lower tangent for at least this point
 			return False
+
+		# increment and check if tried every point
+		curr_point = curr_point.clockwise
+		if curr_point is point_in_hull:
+			break
 
 	# all points were on or above
 	return True
@@ -249,10 +294,10 @@ def above_or_below(m: float, b: float, point: QPointF) -> int:
 	"""
 	y_0 = point.y()
 	result = m * point.x() + b
-	if y_0 > result:
-		return ABOVE
-	elif y_0 == result:
+	if abs(y_0 - result) < 0.00000000001:
 		return ON
+	elif y_0 > result:
+		return ABOVE
 	elif y_0 < result:
 		return BELOW
 
@@ -278,6 +323,7 @@ def find_y_intercept(m: float, point_on_tangent: QPointF) -> float:
 	"""
 	return point_on_tangent.y() - (m * point_on_tangent.x())
 
+
 def combine(left_hull_root: PointNode, right_hull_root: PointNode) -> PointNode:
 	"""
 	Combines two hulls by finding upper and lower tangents and removing nodes
@@ -287,18 +333,17 @@ def combine(left_hull_root: PointNode, right_hull_root: PointNode) -> PointNode:
 	:param right_hull_root: The root PointNode of the right hull to combine (leftmost point)
 	:return: The root PointNode of the combined hull
 	"""
-	# TODO find upper tangent
-	# TODO find lower tangent
-	# TODO Create a new hull
-		# start at left hull
-			# Iterate counter-clockwise through nodes until upper_tangent_left node is found
-				# Set its clockwise node to upper_tangent_right node
-			# Continue iterate counter-clockwise until lower_tangent_left node is found
-				# Set its counter-clockwise node to lower_tangent_right node
-			# Iterate counter-clockwise 1 node (to lower_tangent_right node)
-				# Set its clockwise node to lower_tangent_left node
-			# Continue counter-clockwise until upper_tangent_right_node is found
-				# Set its counter-clockwise node to upper-tangent-left-node
+	# find tangents
+	upper_left, upper_right = find_upper_tangent(left_hull_root, right_hull_root)
+	lower_left, lower_right = find_lower_tangent(left_hull_root, right_hull_root)
+
+	# create a new hull
+	upper_left.clockwise = upper_right
+	upper_right.counter_clockwise = upper_left
+	lower_left.counter_clockwise = lower_right
+	lower_right.clockwise = lower_left
+
+	return upper_left
 
 
 def to_leftmost_node(root_node: PointNode) -> PointNode:
@@ -345,23 +390,12 @@ def to_rightmost_node(root_node: PointNode) -> PointNode:
 	return curr_node
 
 
-def iterate_clockwise(node: PointNode) -> PointNode:
-	"""
-	Returns the next clockwise PointNode, first checking for None
+# if __name__ == "__main__":
+# 	# sorted_points = [QPointF(1.0, 1.0), QPointF(2.0, 2.0), QPointF(3.0, 1.0), QPointF(5, 3)]
+# 	# sorted_points = [QPointF(1.000001, 2.000001), QPointF(2.000001, 3.000001), QPointF(2.500004, 2.000001), QPointF(3.000005, 1.000001), QPointF(3.500005, 3.000001), QPointF(4.00002, 4.000001), QPointF(5.002, 2.000001), QPointF(6.0005, 3.000001)]
+# 	# sorted_points = [QPointF(-0.8346014684451692, 0.11172643811141669), QPointF(-0.8040451631412548,-0.2748520657076059), QPointF(-0.1248416717398606, -0.3760631777812582), QPointF(0.03115216321399039, 0.9751813280210595), QPointF(0.4523649013590423, 0.1558272297975385)]
+# 	sorted_points = [QPointF(-0.6726141353934931, -0.021656509885807473), QPointF(-0.3588946762474199, -0.48025045570101055), QPointF(-0.20384115482678244, -0.3015934861352687), QPointF(0.20213023654773443, -0.09789206232693326)]
+# 	node = convex_hull_dc(sorted_points)
+# 	hull_points = convert_nodes_to_list(node)
+# 	print(hull_points)
 
-	:param node: A PointNode in the convex hull
-	:return: The PointNode clockwise of node in the convex hull
-	"""
-	assert node.clockwise is not None
-	return node.clockwise
-
-
-def iterate_counter_clockwise(node: PointNode) -> PointNode:
-	"""
-	Returns the next counter-clockwise PointNode, first checking for None
-
-	:param node: A PointNode in the convex hull
-	:return: The PointNode counter-clockwise of node in the convex hull
-	"""
-	assert node.counter_clockwise is not None
-	return node.counter_clockwise
