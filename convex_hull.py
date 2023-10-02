@@ -164,28 +164,43 @@ def find_upper_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 
 	# starting line from innermost nodes of the hulls
 	curr_line = QLineF(left_node.point, right_node.point)
+	curr_slope = (curr_line.y2() - curr_line.y1()) / (curr_line.x2() - curr_line.x1())
 
 	done = 0
 	while not done:
 		done = 1
-		# while temp is note upper tangent to L
-		while not is_upper_tangent(left_node, curr_line.p1(), curr_line.p2()):
+		# while temp is not upper tangent to L
+		while True:
 			# r <- p's counterclockwise neighbor
 			new_left = left_node.counter_clockwise
-			# temp = line(r, q)
-			curr_line.setP1(new_left.point)
-			# p = r
-			left_node = new_left
-			done = 0
+
+			new_slope = (curr_line.p2().y() - new_left.point.y()) / (curr_line.p2().x() - new_left.point.x())
+			if new_slope < curr_slope:
+				# new slope is closer to being the tangent
+				# temp = line(r, q)
+				curr_line.setP1(new_left.point)
+				# p = r
+				left_node = new_left
+				curr_slope = new_slope
+				done = 0
+			else:
+				break
 		# while temp is not upper tangent to R do
-		while not is_upper_tangent(right_node, curr_line.p1(), curr_line.p2()):
+		while True:
 			# r <-q's clockwise neighbor
 			new_right = right_node.clockwise
-			# temp = line(p, r)
-			curr_line.setP2(new_right.point)
-			# q = r
-			right_node = new_right
-			done = 0
+
+			new_slope = (new_right.point.y() - curr_line.p1().y()) / (new_right.point.x() - curr_line.p1().x())
+			if new_slope > curr_slope:
+				# new_slope is closer to being the tangent
+				# temp = line(p, r)
+				curr_line.setP2(new_right.point)
+				# q = r
+				right_node = new_right
+				curr_slope = new_slope
+				done = 0
+			else:
+				break
 	return left_node, right_node
 
 
@@ -203,109 +218,124 @@ def find_lower_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 
 	# starting line from innermost nodes of the hulls
 	curr_line = QLineF(left_node.point, right_node.point)
+	curr_slope = (curr_line.y2() - curr_line.y1()) / (curr_line.x2() - curr_line.x1())
 
 	done = 0
 	while not done:
 		done = 1
 		# while temp is not lower tangent to L do
-		while not is_lower_tangent(left_node, curr_line.p1(), curr_line.p2()):
+		while True:
 			# r <- p's clockwise neighbor
 			new_left = left_node.clockwise
-			# temp = line(r, q)
-			curr_line.setP1(new_left.point)
-			# p = r
-			left_node = new_left
-			done = 0
+
+			new_slope = (curr_line.p2().y() - new_left.point.y()) / (curr_line.p2().x() - new_left.point.x())
+			if new_slope > curr_slope:
+				# new_slope is closer to being the tangent
+				# temp = line(r, q)
+				curr_line.setP1(new_left.point)
+				# p = r
+				left_node = new_left
+				curr_slope = new_slope
+				done = 0
+			else:
+				break
 		# while temp is not lower tangent to R do
-		while not is_lower_tangent(right_node, curr_line.p1(), curr_line.p2()):
+		while True:
 			# r <-q's counter-clockwise neighbor
 			new_right = right_node.counter_clockwise
-			# temp = line(p, r)
-			curr_line.setP2(new_right.point)
-			# q = r
-			right_node = new_right
-			done = 0
+
+			new_slope = (new_right.point.y() - curr_line.p1().y()) / (new_right.point.x() - curr_line.p1().x())
+			if new_slope < curr_slope:
+				# new_slope is closer to being the tangent
+				# temp = line(p, r)
+				curr_line.setP2(new_right.point)
+				# q = r
+				right_node = new_right
+				curr_slope = new_slope
+				done = 0
+			else:
+				break
 	return left_node, right_node
 
 
-def is_upper_tangent(point_in_hull: PointNode, tangent_left: QPointF, tangent_right: QPointF) -> bool:
-	"""
-	Finds if the tangent is above of all points on the list
-
-	:param point_in_hull: Any point of the hull which will be compared to tangent line, as a PointNode
-	:param tangent_left: The left point of the tangent, as a QPointF
-	:param tangent_right: The right point of the tangent, as a QPointF
-	:return: Whether the tangent is above all points on the list
-	"""
-	m = find_slope(tangent_left, tangent_right)
-	b = find_y_intercept(m, tangent_left)
-
-	# check if each point in the hull is below the tangent
-	curr_point = point_in_hull
-	while True:
-		if above_or_below(m, b, curr_point.point) == ABOVE:
-			# not an upper tangent for at least this point
-			return False
-
-		# increment and check if tried every point
-		curr_point = curr_point.clockwise
-		if curr_point is point_in_hull:
-			break
-
-	# all points were on or below
-	return True
-
-
-def is_lower_tangent(point_in_hull: PointNode, tangent_left: QPointF, tangent_right: QPointF) -> bool:
-	"""
-	Finds if the tangent is below of all points on the list
-
-	:param point_in_hull: Any point of the hull which will be compared to tangent line, as a PointNode
-	:param tangent_left: The left point of the tangent, as a QPointF
-	:param tangent_right: The right point of the tangent, as a QPointF
-	:return: Whether the tangent is below all points on the list
-	"""
-
-	m = find_slope(tangent_left, tangent_right)
-	b = find_y_intercept(m, tangent_left)
-
-	# check if each point in the hull is above the tangent
-	curr_point = point_in_hull
-	while True:
-		if above_or_below(m, b, curr_point.point) == BELOW:
-			# not a lower tangent for at least this point
-			return False
-
-		# increment and check if tried every point
-		curr_point = curr_point.clockwise
-		if curr_point is point_in_hull:
-			break
-
-	# all points were on or above
-	return True
-
-
-def above_or_below(m: float, b: float, point: QPointF) -> int:
-	"""
-	y_0 >/=/< m(x_0) + b
-
-	:param m: The slope, as a float
-	:param b: The y-intercept, as a float
-	:param point: The point to compare to the tangent line, as a QPointF
-	:return: ABOVE (1), ON (0), or BELOW (-1)
-	"""
-	y_0 = point.y()
-	result = m * point.x() + b
-	# print(f"y_0: {y_0}, result: {result}")
-	if abs(y_0 - result) < 0.0000000001: # 0.0000000001
-		# print("   ON")
-		return ON
-	elif y_0 > result:
-		# print("   ABOVE")
-		return ABOVE
-	elif y_0 < result:
-		# print("   BELOW")
-		return BELOW
+# def is_upper_tangent(point_in_hull: PointNode, tangent_left: QPointF, tangent_right: QPointF) -> bool:
+# 	"""
+# 	Finds if the tangent is above of all points on the list
+#
+# 	:param point_in_hull: Any point of the hull which will be compared to tangent line, as a PointNode
+# 	:param tangent_left: The left point of the tangent, as a QPointF
+# 	:param tangent_right: The right point of the tangent, as a QPointF
+# 	:return: Whether the tangent is above all points on the list
+# 	"""
+# 	m = find_slope(tangent_left, tangent_right)
+# 	b = find_y_intercept(m, tangent_left)
+#
+# 	# check if each point in the hull is below the tangent
+# 	curr_point = point_in_hull
+# 	while True:
+# 		if above_or_below(m, b, curr_point.point) == ABOVE:
+# 			# not an upper tangent for at least this point
+# 			return False
+#
+# 		# increment and check if tried every point
+# 		curr_point = curr_point.clockwise
+# 		if curr_point is point_in_hull:
+# 			break
+#
+# 	# all points were on or below
+# 	return True
+#
+#
+# def is_lower_tangent(point_in_hull: PointNode, tangent_left: QPointF, tangent_right: QPointF) -> bool:
+# 	"""
+# 	Finds if the tangent is below of all points on the list
+#
+# 	:param point_in_hull: Any point of the hull which will be compared to tangent line, as a PointNode
+# 	:param tangent_left: The left point of the tangent, as a QPointF
+# 	:param tangent_right: The right point of the tangent, as a QPointF
+# 	:return: Whether the tangent is below all points on the list
+# 	"""
+#
+# 	m = find_slope(tangent_left, tangent_right)
+# 	b = find_y_intercept(m, tangent_left)
+#
+# 	# check if each point in the hull is above the tangent
+# 	curr_point = point_in_hull
+# 	while True:
+# 		if above_or_below(m, b, curr_point.point) == BELOW:
+# 			# not a lower tangent for at least this point
+# 			return False
+#
+# 		# increment and check if tried every point
+# 		curr_point = curr_point.clockwise
+# 		if curr_point is point_in_hull:
+# 			break
+#
+# 	# all points were on or above
+# 	return True
+#
+#
+# def above_or_below(m: float, b: float, point: QPointF) -> int:
+# 	"""
+# 	y_0 >/=/< m(x_0) + b
+#
+# 	:param m: The slope, as a float
+# 	:param b: The y-intercept, as a float
+# 	:param point: The point to compare to the tangent line, as a QPointF
+# 	:return: ABOVE (1), ON (0), or BELOW (-1)
+# 	"""
+# 	y_0 = point.y()
+# 	result = m * point.x() + b
+# 	# print(f"y_0: {y_0}, result: {result}")
+# 	if abs(y_0 - result) < 0.0000001: # 0.0000000001
+# 		# print("   ON")
+# 		return ON
+# 	elif y_0 > result:
+# 		# print("   ABOVE")
+# 		return ABOVE
+# 	elif y_0 < result:
+# 		# print("   BELOW")
+# 		return BELOW
 
 
 def find_slope(tangent_left: QPointF, tangent_right: QPointF) -> float:
