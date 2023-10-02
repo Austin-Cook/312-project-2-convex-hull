@@ -73,15 +73,16 @@ class ConvexHullSolver(QObject):
 		assert(type(points) == list and type(points[0]) == QPointF)
 
 		t1 = time.time()
-		# DONE: SORT THE POINTS BY INCREASING X-VALUE
+		# Sort the points by increasing x-value
 		sorted_points = sorted(points, key=lambda point: point.x())
 		t2 = time.time()
 
 		t3 = time.time()
-		# this is a dummy polygon of the first 3 unsorted points
-		# polygon = [QLineF(points[i], points[(i + 1) % 3]) for i in range(3)]
+		# find the convex hull of the set of sorted points
 		convex_hull_node = convex_hull_dc(sorted_points)
+		# convert the nodes to a list (for compatibility with gui)
 		convex_hull_list = convert_nodes_to_list(convex_hull_node)
+		# draw lines between the points
 		polygon = [QLineF(convex_hull_list[i], convex_hull_list[(i + 1) % len(convex_hull_list)]) for i in range(len(convex_hull_list))]
 		t4 = time.time()
 
@@ -136,9 +137,11 @@ def convex_hull_dc(sorted_points_list: list) -> PointNode:
 	"""
 	# base case - a hull of 1 point
 	if len(sorted_points_list) == 1:
+		# when a hull has only 1 point, we create a new node whose left & right values are itself
 		one_node_hull = PointNode(sorted_points_list[0])
 		one_node_hull.clockwise = one_node_hull
 		one_node_hull.counter_clockwise = one_node_hull
+
 		return one_node_hull
 
 	# divide into two hulls and solve
@@ -158,48 +161,53 @@ def find_upper_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 	:param right_hull_root: The root node of the right convex hull (leftmost Node)
 	:return: A tuple of PointNode objects of the left and right points of the upper tangent
 	"""
-	# find rightmost point p in L (left_hull) and leftmost point q in R (right_hull)
+	# find rightmost point in left_hull and leftmost point in right hull
 	left_node = to_rightmost_node(left_hull_root)
 	right_node = to_leftmost_node(right_hull_root)
 
-	# starting line from innermost nodes of the hulls
+	# starting line between innermost nodes of the hulls
 	curr_line = QLineF(left_node.point, right_node.point)
+
+	# will be compared to that of any potential tangent while "walking"
 	curr_slope = (curr_line.y2() - curr_line.y1()) / (curr_line.x2() - curr_line.x1())
 
+	# alternate walking left and right hulls until upper tangent found
 	done = 0
 	while not done:
 		done = 1
-		# while temp is not upper tangent to L
+		# walk up left hull
 		while True:
-			# r <- p's counterclockwise neighbor
+			# potential point for walking UP left hull
 			new_left = left_node.counter_clockwise
 
+			# slope of the new line walked UP to the left
 			new_slope = (curr_line.p2().y() - new_left.point.y()) / (curr_line.p2().x() - new_left.point.x())
 			if new_slope < curr_slope:
-				# new slope is closer to being the tangent
-				# temp = line(r, q)
+				# new slope is closer to being the tangent - keep it
 				curr_line.setP1(new_left.point)
-				# p = r
 				left_node = new_left
 				curr_slope = new_slope
+
 				done = 0
 			else:
+				# curr_line is upper tangent to left hull
 				break
-		# while temp is not upper tangent to R do
+		# walk up right hull
 		while True:
-			# r <-q's clockwise neighbor
+			# potential point for walking UP right hull
 			new_right = right_node.clockwise
 
+			# slope of the new line walked UP to the right
 			new_slope = (new_right.point.y() - curr_line.p1().y()) / (new_right.point.x() - curr_line.p1().x())
 			if new_slope > curr_slope:
-				# new_slope is closer to being the tangent
-				# temp = line(p, r)
+				# new slope is closer to being the tangent - keep it
 				curr_line.setP2(new_right.point)
-				# q = r
 				right_node = new_right
 				curr_slope = new_slope
+
 				done = 0
 			else:
+				# curr_line is upper tangent to right hull
 				break
 	return left_node, right_node
 
@@ -212,50 +220,119 @@ def find_lower_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 	:param right_hull_root: The root node of the right convex hull (leftmost point)
 	:return: A tuple of PointNode objects of the left and right points of the lower tangent
 	"""
-	# find rightmost point p in L and leftmost point q in R
+	# find rightmost point in left_hull and leftmost point in right hull
 	left_node = to_rightmost_node(left_hull_root)
 	right_node = to_leftmost_node(right_hull_root)
 
-	# starting line from innermost nodes of the hulls
+	# starting line between innermost nodes of the hulls
 	curr_line = QLineF(left_node.point, right_node.point)
+
+	# will be compared to that of any potential tangent while "walking"
 	curr_slope = (curr_line.y2() - curr_line.y1()) / (curr_line.x2() - curr_line.x1())
 
+	# alternate walking left and right hulls until lower tangent found
 	done = 0
 	while not done:
 		done = 1
-		# while temp is not lower tangent to L do
+		# walk down left hull
 		while True:
-			# r <- p's clockwise neighbor
+			# potential point for walking DOWN left hull
 			new_left = left_node.clockwise
 
+			# slope of the new line walked DOWN to the left
 			new_slope = (curr_line.p2().y() - new_left.point.y()) / (curr_line.p2().x() - new_left.point.x())
 			if new_slope > curr_slope:
-				# new_slope is closer to being the tangent
-				# temp = line(r, q)
+				# new slope is closer to being the tangent - keep it
 				curr_line.setP1(new_left.point)
-				# p = r
 				left_node = new_left
 				curr_slope = new_slope
+
 				done = 0
 			else:
+				# curr_line is lower tangent to left hull
 				break
-		# while temp is not lower tangent to R do
+		# walk down right hull
 		while True:
-			# r <-q's counter-clockwise neighbor
+			# potential point for walking DOWN right hull
 			new_right = right_node.counter_clockwise
 
+			# slope of the new line walked DOWN to the right
 			new_slope = (new_right.point.y() - curr_line.p1().y()) / (new_right.point.x() - curr_line.p1().x())
 			if new_slope < curr_slope:
-				# new_slope is closer to being the tangent
-				# temp = line(p, r)
+				# new slope is closer to being the tangent - keep it
 				curr_line.setP2(new_right.point)
-				# q = r
 				right_node = new_right
 				curr_slope = new_slope
+
 				done = 0
 			else:
+				# curr_line is lower tangent to right hull
 				break
 	return left_node, right_node
+
+
+def combine(left_hull_root: PointNode, right_hull_root: PointNode) -> PointNode:
+	"""
+	Combines two hulls by finding upper and lower tangents and removing nodes
+	that are no longer part of the combined hull
+
+	:param left_hull_root: The root PointNode of the hull left hull to combine (rightmost point)
+	:param right_hull_root: The root PointNode of the right hull to combine (leftmost point)
+	:return: The root PointNode of the combined hull
+	"""
+	# find tangents
+	upper_left, upper_right = find_upper_tangent(left_hull_root, right_hull_root)
+	lower_left, lower_right = find_lower_tangent(left_hull_root, right_hull_root)
+
+	# connect the hulls by pointing tangent points to each other rather
+	upper_left.clockwise = upper_right
+	upper_right.counter_clockwise = upper_left
+	lower_left.counter_clockwise = lower_right
+	lower_right.clockwise = lower_left
+
+	return upper_left
+
+
+def to_leftmost_node(root_node: PointNode) -> PointNode:
+	"""
+	Rotates through the convex hull to the leftmost node\n
+
+	:param root_node: A node in the convex hull
+	:return: The leftmost node in the same convex hull as root_node
+	"""
+	curr_node = root_node
+	curr_x = root_node.point.x()
+	while curr_node.clockwise.point.x() < curr_x:
+		# bottom of the hull - rotate clockwise
+		curr_node = curr_node.clockwise
+		curr_x = curr_node.point.x()
+	while curr_node.counter_clockwise.point.x() < curr_x:
+		# top of the hull - rotate counter-clockwise
+		curr_node = curr_node.counter_clockwise
+		curr_x = curr_node.point.x()
+
+	return curr_node
+
+
+def to_rightmost_node(root_node: PointNode) -> PointNode:
+	"""
+	Rotates through the convex hull to the rightmost node\n
+
+	:param root_node: A node in the convex hull
+	:return: The rightmost node in the same convex hull as root_node
+	"""
+	curr_node = root_node
+	curr_x = root_node.point.x()
+	while curr_node.clockwise.point.x() > curr_x:
+		# top of the hull - rotate clockwise
+		curr_node = curr_node.clockwise
+		curr_x = curr_node.point.x()
+	while curr_node.counter_clockwise.point.x() > curr_x:
+		# bottom of the hull - rotate counter-clockwise
+		curr_node = curr_node.counter_clockwise
+		curr_x = curr_node.point.x()
+
+	return curr_node
 
 
 # def is_upper_tangent(point_in_hull: PointNode, tangent_left: QPointF, tangent_right: QPointF) -> bool:
@@ -284,8 +361,8 @@ def find_lower_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 #
 # 	# all points were on or below
 # 	return True
-#
-#
+
+
 # def is_lower_tangent(point_in_hull: PointNode, tangent_left: QPointF, tangent_right: QPointF) -> bool:
 # 	"""
 # 	Finds if the tangent is below of all points on the list
@@ -313,8 +390,8 @@ def find_lower_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 #
 # 	# all points were on or above
 # 	return True
-#
-#
+
+
 # def above_or_below(m: float, b: float, point: QPointF) -> int:
 # 	"""
 # 	y_0 >/=/< m(x_0) + b
@@ -338,92 +415,26 @@ def find_lower_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 # 		return BELOW
 
 
-def find_slope(tangent_left: QPointF, tangent_right: QPointF) -> float:
-	"""
-	m = (y_2 - Y_1) / (x_2 - x_1)
-	
-	:param tangent_left: The left point on the tangent, as a QPointF
-	:param tangent_right: The right point on the tangent, as a QPointF
-	:return: The slope, as a float
-	"""
-	return (tangent_right.y() - tangent_left.y()) / (tangent_right.x() - tangent_left.x())
+# def find_slope(tangent_left: QPointF, tangent_right: QPointF) -> float:
+# 	"""
+# 	m = (y_2 - Y_1) / (x_2 - x_1)
+#
+# 	:param tangent_left: The left point on the tangent, as a QPointF
+# 	:param tangent_right: The right point on the tangent, as a QPointF
+# 	:return: The slope, as a float
+# 	"""
+# 	return (tangent_right.y() - tangent_left.y()) / (tangent_right.x() - tangent_left.x())
 
 
-def find_y_intercept(m: float, point_on_tangent: QPointF) -> float:
-	"""
-	b = y_1 - (m * x_1)
-
-	:param m: The slope
-	:param point_on_tangent: Either point on the tangent, as a QPointF
-	:return: The y-intercept, as a float
-	"""
-	return point_on_tangent.y() - (m * point_on_tangent.x())
-
-
-def combine(left_hull_root: PointNode, right_hull_root: PointNode) -> PointNode:
-	"""
-	Combines two hulls by finding upper and lower tangents and removing nodes
-	that are no longer part of the combined hull
-
-	:param left_hull_root: The root PointNode of the hull left hull to combine (rightmost point)
-	:param right_hull_root: The root PointNode of the right hull to combine (leftmost point)
-	:return: The root PointNode of the combined hull
-	"""
-	# find tangents
-	upper_left, upper_right = find_upper_tangent(left_hull_root, right_hull_root)
-	lower_left, lower_right = find_lower_tangent(left_hull_root, right_hull_root)
-
-	# create a new hull
-	upper_left.clockwise = upper_right
-	upper_right.counter_clockwise = upper_left
-	lower_left.counter_clockwise = lower_right
-	lower_right.clockwise = lower_left
-
-	return upper_left
-
-
-def to_leftmost_node(root_node: PointNode) -> PointNode:
-	"""
-	Rotates through the convex hull to the leftmost node\n
-	NOTE - if surrounding nodes have same x, the hull has a size of 1
-
-	:param root_node: A node in the convex hull
-	:return: The leftmost node in the same convex hull as root_node
-	"""
-	curr_node = root_node
-	curr_x = root_node.point.x()
-	while (curr_node.clockwise is not None) and (curr_node.clockwise.point.x() < curr_x):
-		# bottom of the hull - rotate clockwise
-		curr_node = curr_node.clockwise
-		curr_x = curr_node.point.x()
-	while (curr_node.counter_clockwise is not None) and (curr_node.counter_clockwise.point.x() < curr_x):
-		# top of the hull - rotate counter-clockwise
-		curr_node = curr_node.counter_clockwise
-		curr_x = curr_node.point.x()
-
-	return curr_node
-
-
-def to_rightmost_node(root_node: PointNode) -> PointNode:
-	"""
-	Rotates through the convex hull to the rightmost node\n
-	NOTE - if surrounding nodes have same x, the hull has a size of 1
-
-	:param root_node: A node in the convex hull
-	:return: The rightmost node in the same convex hull as root_node
-	"""
-	curr_node = root_node
-	curr_x = root_node.point.x()
-	while (curr_node.clockwise is not None) and (curr_node.clockwise.point.x() > curr_x):
-		# top of the hull - rotate clockwise
-		curr_node = curr_node.clockwise
-		curr_x = curr_node.point.x()
-	while (curr_node.counter_clockwise is not None) and (curr_node.counter_clockwise.point.x() > curr_x):
-		# bottom of the hull - rotate counter-clockwise
-		curr_node = curr_node.counter_clockwise
-		curr_x = curr_node.point.x()
-
-	return curr_node
+# def find_y_intercept(m: float, point_on_tangent: QPointF) -> float:
+# 	"""
+# 	b = y_1 - (m * x_1)
+#
+# 	:param m: The slope
+# 	:param point_on_tangent: Either point on the tangent, as a QPointF
+# 	:return: The y-intercept, as a float
+# 	"""
+# 	return point_on_tangent.y() - (m * point_on_tangent.x())
 
 
 if __name__ == "__main__":
