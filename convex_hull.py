@@ -1,3 +1,5 @@
+import random
+
 from which_pyqt import PYQT_VER
 if PYQT_VER == 'PYQT5':
 	from PyQt5.QtCore import QLineF, QPointF, QObject
@@ -294,11 +296,15 @@ def above_or_below(m: float, b: float, point: QPointF) -> int:
 	"""
 	y_0 = point.y()
 	result = m * point.x() + b
-	if abs(y_0 - result) < 0.00000000001:
+	# print(f"y_0: {y_0}, result: {result}")
+	if abs(y_0 - result) < 0.0000000001: # 0.0000000001
+		# print("   ON")
 		return ON
 	elif y_0 > result:
+		# print("   ABOVE")
 		return ABOVE
 	elif y_0 < result:
+		# print("   BELOW")
 		return BELOW
 
 
@@ -390,12 +396,20 @@ def to_rightmost_node(root_node: PointNode) -> PointNode:
 	return curr_node
 
 
-# if __name__ == "__main__":
-# 	# sorted_points = [QPointF(1.0, 1.0), QPointF(2.0, 2.0), QPointF(3.0, 1.0), QPointF(5, 3)]
-# 	# sorted_points = [QPointF(1.000001, 2.000001), QPointF(2.000001, 3.000001), QPointF(2.500004, 2.000001), QPointF(3.000005, 1.000001), QPointF(3.500005, 3.000001), QPointF(4.00002, 4.000001), QPointF(5.002, 2.000001), QPointF(6.0005, 3.000001)]
-# 	# sorted_points = [QPointF(-0.8346014684451692, 0.11172643811141669), QPointF(-0.8040451631412548,-0.2748520657076059), QPointF(-0.1248416717398606, -0.3760631777812582), QPointF(0.03115216321399039, 0.9751813280210595), QPointF(0.4523649013590423, 0.1558272297975385)]
-# 	sorted_points = [QPointF(-0.6726141353934931, -0.021656509885807473), QPointF(-0.3588946762474199, -0.48025045570101055), QPointF(-0.20384115482678244, -0.3015934861352687), QPointF(0.20213023654773443, -0.09789206232693326)]
-# 	node = convex_hull_dc(sorted_points)
-# 	hull_points = convert_nodes_to_list(node)
-# 	print(hull_points)
+if __name__ == "__main__":
+	# sorted_points = [QPointF(1.0, 1.0), QPointF(2.0, 2.0), QPointF(3.0, 1.0), QPointF(5, 3)]
+	# sorted_points = [QPointF(1.000001, 2.000001), QPointF(2.000001, 3.000001), QPointF(2.500004, 2.000001), QPointF(3.000005, 1.000001), QPointF(3.500005, 3.000001), QPointF(4.00002, 4.000001), QPointF(5.002, 2.000001), QPointF(6.0005, 3.000001)]
+	# sorted_points = [QPointF(-0.8346014684451692, 0.11172643811141669), QPointF(-0.8040451631412548,-0.2748520657076059), QPointF(-0.1248416717398606, -0.3760631777812582), QPointF(0.03115216321399039, 0.9751813280210595), QPointF(0.4523649013590423, 0.1558272297975385)]
+	# sorted_points = [QPointF(-0.6726141353934931, -0.021656509885807473), QPointF(-0.3588946762474199, -0.48025045570101055), QPointF(-0.20384115482678244, -0.3015934861352687), QPointF(0.20213023654773443, -0.09789206232693326)]
+	sorted_points = []
+	for i in range(100000):
+		sorted_points.append(QPointF(i, random.randrange(300)))
+	print("done generating")
+	print(len(sorted_points))
+	t1 = time.time()
+	node = convex_hull_dc(sorted_points)
+	t2 = time.time()
+	print("done finding convex_hull: time: ", str(t2 - t1))
+	hull_points = convert_nodes_to_list(node)
+	print(hull_points)
 
