@@ -153,17 +153,17 @@ def convex_hull_dc(sorted_points_list: list) -> PointNode:
 	return combine(left_hull, right_hull)
 
 
-def find_upper_tangent(left_hull_root: PointNode, right_hull_root: PointNode) -> Tuple[PointNode, PointNode]:
+def find_upper_tangent(left_hull_node: PointNode, right_hull_node: PointNode) -> Tuple[PointNode, PointNode]:
 	"""
 	Finds the upper tangent of two convex hulls
 
-	:param left_hull_root: The root node of the left convex hull (rightmost Node)
-	:param right_hull_root: The root node of the right convex hull (leftmost Node)
+	:param left_hull_node: Any node in the left convex hull (rightmost Node)
+	:param right_hull_node: Any node in the right convex hull (leftmost Node)
 	:return: A tuple of PointNode objects of the left and right points of the upper tangent
 	"""
 	# find rightmost point in left_hull and leftmost point in right hull
-	left_node = to_rightmost_node(left_hull_root)
-	right_node = to_leftmost_node(right_hull_root)
+	left_node = to_rightmost_node(left_hull_node)
+	right_node = to_leftmost_node(right_hull_node)
 
 	# starting line between innermost nodes of the hulls
 	curr_line = QLineF(left_node.point, right_node.point)
@@ -212,17 +212,17 @@ def find_upper_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 	return left_node, right_node
 
 
-def find_lower_tangent(left_hull_root: PointNode, right_hull_root: PointNode) -> Tuple[PointNode, PointNode]:
+def find_lower_tangent(left_hull_node: PointNode, right_hull_node: PointNode) -> Tuple[PointNode, PointNode]:
 	"""
 	Finds the lower tangent of two convex hulls
 
-	:param left_hull_root: The root node of the left convex hull (rightmost point)
-	:param right_hull_root: The root node of the right convex hull (leftmost point)
+	:param left_hull_node: Any node in the left convex hull
+	:param right_hull_node: Any node in the right convex hull
 	:return: A tuple of PointNode objects of the left and right points of the lower tangent
 	"""
 	# find rightmost point in left_hull and leftmost point in right hull
-	left_node = to_rightmost_node(left_hull_root)
-	right_node = to_leftmost_node(right_hull_root)
+	left_node = to_rightmost_node(left_hull_node)
+	right_node = to_leftmost_node(right_hull_node)
 
 	# starting line between innermost nodes of the hulls
 	curr_line = QLineF(left_node.point, right_node.point)
@@ -271,18 +271,18 @@ def find_lower_tangent(left_hull_root: PointNode, right_hull_root: PointNode) ->
 	return left_node, right_node
 
 
-def combine(left_hull_root: PointNode, right_hull_root: PointNode) -> PointNode:
+def combine(left_hull_node: PointNode, right_hull_node: PointNode) -> PointNode:
 	"""
 	Combines two hulls by finding upper and lower tangents and removing nodes
 	that are no longer part of the combined hull
 
-	:param left_hull_root: The root PointNode of the hull left hull to combine (rightmost point)
-	:param right_hull_root: The root PointNode of the right hull to combine (leftmost point)
+	:param left_hull_node: Any PointNode in the hull left hull to combine (rightmost point)
+	:param right_hull_node: Any PointNode in the right hull to combine (leftmost point)
 	:return: The root PointNode of the combined hull
 	"""
 	# find tangents
-	upper_left, upper_right = find_upper_tangent(left_hull_root, right_hull_root)
-	lower_left, lower_right = find_lower_tangent(left_hull_root, right_hull_root)
+	upper_left, upper_right = find_upper_tangent(left_hull_node, right_hull_node)
+	lower_left, lower_right = find_lower_tangent(left_hull_node, right_hull_node)
 
 	# connect the hulls by pointing tangent points to each other rather
 	upper_left.clockwise = upper_right
